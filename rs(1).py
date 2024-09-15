@@ -7,17 +7,29 @@ import subprocess  # 用来执行 Powershell 命令并获取输出
 from concurrent.futures import ThreadPoolExecutor  # 用来处理多线程任务
 
 # GitHub access token 用于访问私有仓库
-access_token = 'input your token'
+access_token = ''
 
 # 本地存放所有仓库的目录
-base_path1 = 'G:\\REPO'
+base_path1 = 'G:\\Repo'
 
 # 输入的 CSV 文件路径
-input_csv = "E:\\task\\fw\\java_repos.csv"
+input_csv = "E:\\task\\fw\\1.csv"
 
 # 输出的 CSV 文件路径
-output_csv = "D:\\大创\\fw\\a.csv"
+output_csv = "E:\\task\\fw\\a.csv"
 
+# 定义正则表达式模式
+# 匹配以 // 开头的单行注释
+single_line_comment_pattern = re.compile(r'^[+-]?\s*//')
+
+# 匹配以 /* 开头的多行注释块
+multi_line_comment_start_pattern = re.compile(r'^[+-]?\s*/\*')
+
+# 匹配多行注释的内容行（以 * 开头）
+multi_line_comment_cont_pattern = re.compile(r'^[+-]?\s*\*')
+
+# 正则表达式用于匹配仅包含空白字符、制表符或填充空格的行
+empty_or_whitespace_pattern = re.compile(r'^\s*$')
 
 def clone_repository(url, output_dir):
     """
@@ -90,9 +102,9 @@ def test_finder(url):
     os.chdir(os.path.join(base_path1, repo))
     commit_hash = extract_commit_hash(url)
 
-    # 使用 Powershell 查询指定 commit 中是否有 test 文件
-    git_ls_tree = f'git ls-tree -r {commit_hash} | Select-String "(?i)test"'
-    result = subprocess.run(['powershell', '-Command', git_ls_tree], capture_output=True, text=True)
+    # 使用 cmd 查询指定 commit 中是否有 test 文件
+    git_ls_tree = f'git ls-tree -r {commit_hash}'
+    result = subprocess.run(['cmd', '/c', git_ls_tree], capture_output=True, text=True)
     output = result.stdout
 
     return bool(output)
@@ -125,8 +137,9 @@ class DiffParser:
         返回:
         - hunk: Hunk 的数量
         """
-        pointer = -1
-        hunk = 0  # 计算 Hunk 的数量
+        pointer = -1 # 指针，用于记录行索引
+        hunk = 0  # Hunk 的数量，考虑到第一个 Hunk 之前存在 @@ 标记，所以初始化为 0
+        is_in_hunk = 0 # 标志位，用于判断当前行是否在 Hunk 中
         is_comment = 0
         is_test_case = 0
 
@@ -134,48 +147,99 @@ class DiffParser:
 
             if line.startswith('@@'):
                 # 遇到 Hunk 标记行，重置指针和注释标志位
-                # 如果指针不为 -1，说明上一个 Hunk 已经结束，Hunk 数量 +1
-                if pointer != -1:
-                    hunk += 1
-                    pointer = -1
-                is_comment = 0
+                # 如果指示器为 1，说明上一个 Hunk 应该结束
+                if is_in_hunk == 1:
+                    pointer = index # 更新指针到当前行
+                    is_in_hunk = 0
+                is_comment = 0 # 重置注释标志位
+                continue
+            
+            if line.find('*/') != -1 and is_comment == 1:
+                is_comment = 0 # 注释结束
+                if is_in_hunk == 1: # 且如果当前行在 Hunk 中，指针到当前行，Hunk 不结束
+                    pointer = index
+                continue
+
+            if is_comment == 1: # 上一段是注释段
+                if is_in_hunk == 1: # 且如果当前行在 Hunk 中，指针到当前行，Hunk 不结束
+                    pointer = index
                 continue
 
             if line.startswith("diff"):
-                is_test_case = 0
-                pattern = "^diff --git.*[Tt][Ee][Ss][Tt].*$"
-                ans = re.search(pattern, line)
-                if ans:
+                is_test_case = 0 # 重置测试用例标志位
+                is_java_file = 0 # 重置 Java 文件标志位
+                test_pattern = "^diff --git.*[Tt][Ee][Ss][Tt].*$"
+                test_ans = re.search(test_pattern, line)
+                if test_ans:
                     is_test_case = 1
+                java_pattern = r"^diff --git.*\.java$"
+                java_ans = re.search(java_pattern, line)
+                if java_ans:
+                    is_java_file = 1
             if is_test_case == 1:
                 continue
-
-            # 处理注释
-            if line.find('*/') != -1 and is_comment == 1:
-                is_comment = 0
-                continue
-            if line.find("/**") != -1 or line.find("/*") != -1:
-                is_comment = 1
-                continue
-            if is_comment == 1:
+            if is_java_file == 0:
                 continue
 
             # 处理修改行（+/-开头的行）
-            if len(line) >= 1:
-                if line.find("import") == -1:
-                    if line[0] == '-' or line[0] == "+":
-                        if any(line.startswith(ignore) for ignore in ["+++", "---", "+ *", "+/*", "-/*", "- *"]):
-                            continue
+            if line.find("import") == -1: # 排除 import 语句
+                if line[0] == '-' or line[0] == "+":
+                    if any(line.startswith(ignore) for ignore in ["+++", "---"]):  # 排除 diff 头部信息
+                        continue
 
-                        if pointer == -1:
+                    if bool(empty_or_whitespace_pattern.match(line[1:])):
+                        # 如果行只包含空白字符、制表符或填充空格，跳过
+                        if is_in_hunk == 1:
                             pointer = index
+                        continue
+
+                    is_in_hunk = 1
+                    
+                    if single_line_comment_pattern.match(line):  # 排除单行注释
+                        if pointer == -1: # 如果指针未初始化，则直接跳过
+                            continue
+                        if is_in_hunk == 1:
+                            pointer = index
+                        continue
+
+                    if multi_line_comment_start_pattern.match(line):  # 排除多行注释块
+                        if pointer == -1: # 如果指针未初始化，则直接跳过
+                            is_comment = 1
+                            continue
+                        is_comment = 1
+                        if is_in_hunk == 1:
+                            pointer = index
+                        continue
+
+
+                    if pointer == -1: # 第一次遇到代码的修改行，初始化指针
+                        pointer = index
+                        hunk += 1
+                        print("hunk:", hunk)
+                        print("line:", line)
+
+                    else: # 非第一次遇到修改行，判断是否属于同一个hunk
+                        if index == (pointer + 1): # 如果当前行是上一行的下一行，说明在同一个 hunk 中
+                            if is_in_hunk == 1:
+                                pointer = index
+
+                        else: # 如果当前行不是hunk当前结尾的下一行，说明进入了新的 hunk，重置指针和 hunk 计数
+                            if is_in_hunk == 1:
+                                pointer = index
                             hunk += 1
-                        else:
-                            if index == (pointer + 1):
-                                pointer = index
-                            else:
-                                pointer = index
-                                hunk += 1
+                            print("hunk:", hunk)
+                            print("line:", line)
+                else:
+                    is_in_hunk = 0
+
+            # # 处理注释
+            # if line.find("/**") != -1 or line.find("/*") != -1:
+            #     is_comment = 1
+            #     continue
+            # if line.find('//') != -1:
+            #     continue
+
+
 
         print(hunk)
         return hunk
@@ -189,6 +253,7 @@ class DiffParser:
         - java_file: Java 文件的数量
         - test_in_commit: 提交中是否有测试文件
         """
+
         file = 0
         java_file = 0
         is_test_case = 0
@@ -197,7 +262,7 @@ class DiffParser:
         for line in self.lines:
             if line.startswith("diff"):
                 is_test_case = 0
-                pattern = "^diff --git.*[Tt][eE][Ss][Tt].*$"
+                pattern = "^diff --git.*[Tt][Ee][Ss][Tt].*$"
                 ans = re.search(pattern, line)
                 if ans:
                     is_test_case = 1
@@ -245,7 +310,7 @@ def get_commit_subject(commit_hash, repo_path):
     返回:
     - 提交说明，如果获取失败则返回 None
     """
-    path_str = f"E:\\REPO\\{repo_path}"
+    path_str = os.path.join(base_path1, repo_path)
     command = ["git", "-C", path_str, "show", "--format=%s", "-s", commit_hash]
     result = subprocess.run(command, capture_output=True, text=True)
 
@@ -253,6 +318,7 @@ def get_commit_subject(commit_hash, repo_path):
         return result.stdout.strip()
     else:
         print("Failed to get commit subject")
+        print("Error:", result.stderr)  # 添加 stderr 输出调试信息
         return None
 
 
@@ -265,10 +331,10 @@ if __name__ == '__main__':
         urls = [row[3] for row in reader]
 
     # 克隆所有仓库
-    os.chdir(base_path1)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for url in urls:
-            executor.submit(clone_repository, url, base_path1)
+    # os.chdir(base_path1)
+    # with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    #     for url in urls:
+    #         executor.submit(clone_repository, url, base_path1)
 
     # 输出 CSV 文件初始化
     with open(output_csv, 'w') as f:
@@ -276,27 +342,36 @@ if __name__ == '__main__':
 
     # 分析每个仓库的提交记录
     for url in urls:
-        commit_hash = extract_commit_hash(url)
-        repository_name = re.search(r'/([^/]+/[^/]+)/commit/', url).group(1)
-        repo = re.search(r'[^/]+$', repository_name).group()
+        try:
+            commit_hash=extract_commit_hash(url)
+            repo=repository_name = re.search(r'/([^/]+/[^/]+)/commit/', url).group(1)
+            repo = re.search(r'[^/]+$', repository_name).group()
+            note = get_commit_subject(commit_hash,repo)
+            os.chdir(os.path.join(base_path1, repo))
+            diff_command = f'git diff {commit_hash}^..{commit_hash}'  # 注意添加了空格
+            diff_output = subprocess.run(['pwsh', '-Command', diff_command], capture_output=True, text=True, encoding='utf-8').stdout
+            print (diff_command)
+            if len(diff_output)<1:
+                print("the repo local is bad")
+                diff_url=url+'.diff'
+                res=requests.get(diff_url).text
+                if res!=None:
+                    print("it is solved")
+                    diff_output=res
+            parser=DiffParser(diff_output)
+            with open(output_csv, 'a') as f:
+                file, java_file,test_in_commit = parser.parse_file()
+                hunk = parser.parse_hunk()
+                functions = len(parser.extract_functions())
 
-        # 获取仓库的 diff 信息
-        command = ['git', '-C', f'E:\\REPO\\{repo}', 'diff', f'{commit_hash}~1', commit_hash]
-        result = subprocess.run(command, capture_output=True, text=True)
-        diff_output = result.stdout
+                string = "URL: {}   Repo: {}   file: {}   java_file: {}   functions: {}   hunk: {}\n".format(url, repo, file, java_file, functions, hunk)
+                test_in_repo = 0
+                if(test_in_commit == 0):
+                    if test_finder(url):
+                        test_in_repo = 1
 
-        # 解析 diff 信息
-        diff_parser = DiffParser(diff_output)
-        file, java_file, test_in_commit = diff_parser.parse_file()
-        hunk = diff_parser.parse_hunk()
-        functions = diff_parser.extract_functions()
-
-        # 获取提交说明
-        commit_subject = get_commit_subject(commit_hash, repo)
-
-        # 测试检测
-        test_result = test_finder(url)
-
-        # 将结果写入输出文件
-        with open(output_csv, 'a') as f:
-            f.write(f"{url},{repo},{file},{java_file},{len(functions)},{hunk},{test_result},{commit_subject}\n")
+                string = "{},{},{},{},{},{},{},{}\n".format(url, repository_name, file, java_file, functions, hunk, test_in_commit|test_in_repo,note)
+                f.write(string)
+        except Exception as e:
+            print(f"Error processing {url}: {e}")
+            continue

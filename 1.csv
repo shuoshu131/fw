@@ -1,0 +1,10 @@
+CVE-2020-36179,jackson-databind,2.0.0-RC1-2.9.10.7,https://github.com/FasterXML/jackson-databind/commit/3ded28aece694d0df39c9f0fa1ff385b14a8656b
+CVE-2020-36189,jackson-databind,2.0.0-RC1-2.9.10.7,https://github.com/FasterXML/jackson-databind/commit/33d96c13fe18a2dad01b19ce195548c9acea9da4
+CVE-2020-10673,jackson-databind,2.8.11-2.8.11.6,https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15
+CVE-2020-10673,jackson-databind,2.0.0-RC1-2.7.9.6,https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15
+CVE-2020-10673,jackson-databind,2.9.10-2.9.10.3,https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15
+CVE-2020-10673,jackson-databind,2.9.0.pr1-2.9.9.3,https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15
+CVE-2020-10673,jackson-databind,2.8.0.rc1-2.8.10,https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15
+CVE-2020-14195,jackson-databind,2.0.0-RC1-2.7.9.7,https://github.com/FasterXML/jackson-databind/commit/f6d9c664f6d481703138319f6a0f1fdbddb3a259
+CVE-2020-14195,jackson-databind,2.8.0.rc1-2.8.11.6,https://github.com/FasterXML/jackson-databind/commit/f6d9c664f6d481703138319f6a0f1fdbddb3a259
+CVE-2020-14195,jackson-databind,2.9.0.pr1-2.9.10.4,https://github.com/FasterXML/jackson-databind/commit/f6d9c664f6d481703138319f6a0f1fdbddb3a259

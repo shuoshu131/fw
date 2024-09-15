@@ -1,0 +1,11 @@
+url,repo,file,java_file,func,hunk,test,note
+https://github.com/FasterXML/jackson-databind/commit/3ded28aece694d0df39c9f0fa1ff385b14a8656b,FasterXML/jackson-databind,2,1,0,5,1,Fixed #3004
+https://github.com/FasterXML/jackson-databind/commit/33d96c13fe18a2dad01b19ce195548c9acea9da4,FasterXML/jackson-databind,2,1,0,1,1,Fixed #2996
+https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15,FasterXML/jackson-databind,2,1,0,1,1,Fix #2660
+https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15,FasterXML/jackson-databind,2,1,0,1,1,Fix #2660
+https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15,FasterXML/jackson-databind,2,1,0,1,1,Fix #2660
+https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15,FasterXML/jackson-databind,2,1,0,1,1,Fix #2660
+https://github.com/FasterXML/jackson-databind/commit/1645efbd392989cf015f459a91c999e59c921b15,FasterXML/jackson-databind,2,1,0,1,1,Fix #2660
+https://github.com/FasterXML/jackson-databind/commit/f6d9c664f6d481703138319f6a0f1fdbddb3a259,FasterXML/jackson-databind,2,1,0,1,1,Fixed #2765
+https://github.com/FasterXML/jackson-databind/commit/f6d9c664f6d481703138319f6a0f1fdbddb3a259,FasterXML/jackson-databind,2,1,0,1,1,Fixed #2765
+https://github.com/FasterXML/jackson-databind/commit/f6d9c664f6d481703138319f6a0f1fdbddb3a259,FasterXML/jackson-databind,2,1,0,1,1,Fixed #2765
